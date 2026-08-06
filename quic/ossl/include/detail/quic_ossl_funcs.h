@@ -88,6 +88,14 @@ const char* quic_ossl_engine_last_error(quic_engine* engine);
 int quic_ossl_conn_prepare(quic_conn* conn, uint32_t idle_timeout_secs);
 
 /**
+ * Report the negotiated TLS parameters of a connection.
+ * @param conn Connection to query.
+ * @param out  Filled in on success.
+ * @return 1 when the values are available, 0 before the cipher is negotiated.
+ */
+int quic_ossl_conn_tls_info(quic_conn* conn, quic_tls_info* out);
+
+/**
  * Open a server-initiated unidirectional stream.
  * @param conn   Connection to open on.
  * @param out_id Out: the new stream's id.

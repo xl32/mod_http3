@@ -116,6 +116,14 @@ quic_stream* quic_ngtcp2_conn_accept_stream(quic_conn* conn);
 int quic_ngtcp2_conn_is_handshake_done(quic_conn* conn);
 
 /**
+ * Report the negotiated TLS parameters of a connection.
+ * @param conn Connection to query.
+ * @param out  Filled in on success.
+ * @return 1 when the values are available, 0 before the cipher is negotiated.
+ */
+int quic_ngtcp2_conn_tls_info(quic_conn* conn, quic_tls_info* out);
+
+/**
  * Whether the connection has finished closing.
  * @param conn Connection to query.
  * @return Non-zero once closed.

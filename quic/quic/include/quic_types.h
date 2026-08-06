@@ -58,6 +58,23 @@ typedef struct quic_caps
     unsigned acks_are_write_offsets : 1;
 } quic_caps;
 
+/**
+ * Negotiated TLS parameters of one connection, as a caller needs them to
+ * describe the connection to an application (mod_ssl's SSL_PROTOCOL,
+ * SSL_CIPHER and friends). The strings point into storage the engine owns and
+ * stay valid as long as the connection does; callers copy what they keep
+ * longer. Fields an engine cannot answer are left NULL or 0.
+ */
+typedef struct quic_tls_info
+{
+    const char* protocol;
+    const char* cipher;
+    /* Key bits actually used, and the algorithm's full strength. */
+    int cipher_bits;
+    int cipher_alg_bits;
+    unsigned resumed : 1;
+} quic_tls_info;
+
 /** Where an engine reads its certificate and private key from. */
 typedef enum quic_cred_kind
 {
@@ -171,6 +188,9 @@ typedef struct quic_api
         quic_stream* (*accept_stream)(quic_conn* conn);
         int (*is_handshake_done)(quic_conn* conn);
         int (*is_closed)(quic_conn* conn);
+        /* Optional: fill in the negotiated TLS parameters. Left NULL by an
+         * engine that runs no TLS of its own. */
+        int (*tls_info)(quic_conn* conn, quic_tls_info* out);
         int (*shutdown)(quic_conn* conn, int is_rapid, uint64_t app_error, const char* reason);
         void (*free)(quic_conn* conn);
     } conn;

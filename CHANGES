@@ -3,6 +3,17 @@ mod_http3 changes
 Changes are listed most recent first.
 Security-related entries always appear at the top of their release block.
 
+v0.0.53 (unreleased)
+--------------------
+  *) Published the mod_ssl TLS environment for HTTP/3 requests: SSL_PROTOCOL,
+     SSL_CIPHER, SSL_CIPHER_USEKEYSIZE, SSL_CIPHER_ALGKEYSIZE,
+     SSL_CIPHER_EXPORT and SSL_SESSION_RESUMED, under the names mod_ssl uses.
+     mod_ssl does not manage these connections, so scripts and rewrite
+     conditions that read them saw nothing but HTTPS=on over HTTP/3. The values
+     are read from the QUIC engine through a new conn.tls_info entry and
+     formatted once per connection, not per request.
+     [Alexander Gerasimov <codeguard gmail.com>]
+
 v0.0.52 (2026-08-05)
 --------------------
   *) Updated the dependency submodules to their current upstream revisions,

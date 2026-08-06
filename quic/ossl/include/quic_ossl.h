@@ -56,6 +56,7 @@ static inline const quic_api* quic_ossl_api(void)
                 .open_uni_stream = quic_ossl_conn_open_uni_stream,
                 .accept_stream = quic_ossl_conn_accept_stream,
                 .is_handshake_done = quic_ossl_conn_is_handshake_done,
+                .tls_info = quic_ossl_conn_tls_info,
                 .is_closed = quic_ossl_conn_is_closed,
                 .shutdown = quic_ossl_conn_shutdown,
                 .free = quic_ossl_conn_free,
