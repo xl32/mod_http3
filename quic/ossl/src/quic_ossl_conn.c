@@ -65,6 +65,27 @@ int quic_ossl_conn_is_handshake_done(quic_conn* conn)
     return ssl_conn ? SSL_is_init_finished(ssl_conn) : 0;
 }
 
+int quic_ossl_conn_tls_info(quic_conn* conn, quic_tls_info* out)
+{
+    SSL* ssl_conn = (SSL*)conn;
+    if (!ssl_conn || !out)
+    {
+        return 0;
+    }
+    const SSL_CIPHER* cipher = SSL_get_current_cipher(ssl_conn);
+    if (!cipher)
+    {
+        return 0;
+    }
+    int alg_bits = 0;
+    out->cipher_bits = SSL_CIPHER_get_bits(cipher, &alg_bits);
+    out->cipher_alg_bits = alg_bits;
+    out->cipher = SSL_CIPHER_get_name(cipher);
+    out->protocol = SSL_get_version(ssl_conn);
+    out->resumed = SSL_session_reused(ssl_conn) ? 1u : 0u;
+    return 1;
+}
+
 int quic_ossl_conn_is_closed(quic_conn* conn)
 {
     SSL* ssl_conn = (SSL*)conn;

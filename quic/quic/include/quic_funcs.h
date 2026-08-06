@@ -217,6 +217,22 @@ static inline int quic_conn_is_closed(quic_conn* conn)
 }
 
 /**
+ * Read the negotiated TLS parameters of a connection.
+ * @param conn Connection to query.
+ * @param out  Filled in on success; untouched otherwise.
+ * @return 1 when the engine answered, 0 when it runs no TLS or the handshake
+ *         has not produced these values yet.
+ */
+static inline int quic_conn_tls_info(quic_conn* conn, quic_tls_info* out)
+{
+    if (!conn || !out || !quic_selected()->conn.tls_info)
+    {
+        return 0;
+    }
+    return quic_selected()->conn.tls_info(conn, out);
+}
+
+/**
  * Begin or continue connection shutdown.
  * @param conn      Connection to close; NULL counts as already closed.
  * @param is_rapid  Non-zero to skip the drain, as on server exit.
