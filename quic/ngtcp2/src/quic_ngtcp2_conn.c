@@ -218,6 +218,27 @@ int quic_ngtcp2_conn_is_handshake_done(quic_conn* conn)
     return nconn ? (int)nconn->handshake_done : 0;
 }
 
+int quic_ngtcp2_conn_tls_info(quic_conn* conn, quic_tls_info* out)
+{
+    quic_ngtcp2_conn* nconn = (quic_ngtcp2_conn*)conn;
+    if (!nconn || !nconn->ssl || !out)
+    {
+        return 0;
+    }
+    const SSL_CIPHER* cipher = SSL_get_current_cipher(nconn->ssl);
+    if (!cipher)
+    {
+        return 0;
+    }
+    int alg_bits = 0;
+    out->cipher_bits = SSL_CIPHER_get_bits(cipher, &alg_bits);
+    out->cipher_alg_bits = alg_bits;
+    out->cipher = SSL_CIPHER_get_name(cipher);
+    out->protocol = SSL_get_version(nconn->ssl);
+    out->resumed = SSL_session_reused(nconn->ssl) ? 1u : 0u;
+    return 1;
+}
+
 int quic_ngtcp2_conn_is_closed(quic_conn* conn)
 {
     quic_ngtcp2_conn* nconn = (quic_ngtcp2_conn*)conn;
