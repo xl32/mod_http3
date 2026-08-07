@@ -90,6 +90,8 @@ class H3Conf(HttpdConf):
         h3_address_validation=None,
         h3_quic_engine=None,
         h3_socket_buffer_size=None,
+        h3_stream_timeout=None,
+        h3_max_stream_errors=None,
         h3_session_tickets=None,
         h3_early_data=None,
         extra_lines=None
@@ -130,6 +132,10 @@ class H3Conf(HttpdConf):
             self.add(f"H3AddressValidation {val}")
         if h3_socket_buffer_size is not None:
             self.add(f"H3SocketBufferSize {h3_socket_buffer_size}")
+        if h3_stream_timeout is not None:
+            self.add(f"H3StreamTimeout {h3_stream_timeout}")
+        if h3_max_stream_errors is not None:
+            self.add(f"H3MaxStreamErrors {h3_max_stream_errors}")
         if h3_session_tickets is not None:
             val = "on" if h3_session_tickets is True else ("off" if h3_session_tickets is False else h3_session_tickets)
             self.add(f"H3SessionTickets {val}")

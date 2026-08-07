@@ -75,6 +75,8 @@ void* h3_merge_server_config(apr_pool_t* p, void* base_conf, void* new_conf)
     merged->h3_handshake_timeout = new->h3_handshake_timeout ? new->h3_handshake_timeout : base->h3_handshake_timeout;
     merged->h3_idle_timeout = new->h3_idle_timeout ? new->h3_idle_timeout : base->h3_idle_timeout;
     merged->h3_socket_buffer_size = new->h3_socket_buffer_size ? new->h3_socket_buffer_size : base->h3_socket_buffer_size;
+    merged->h3_stream_timeout = new->h3_stream_timeout ? new->h3_stream_timeout : base->h3_stream_timeout;
+    merged->h3_max_stream_errors = new->h3_max_stream_errors ? new->h3_max_stream_errors : base->h3_max_stream_errors;
     merged->h3_session_tickets = new->h3_session_tickets != H3_FLAG_UNSET ? new->h3_session_tickets : base->h3_session_tickets;
     merged->h3_early_data = new->h3_early_data != H3_FLAG_UNSET ? new->h3_early_data : base->h3_early_data;
 
@@ -270,6 +272,58 @@ static const char* set_h3_socket_buffer_size(cmd_parms* cmd, void* /*dummy*/, co
     h3_server_conf* conf = ap_get_module_config(cmd->server->module_config, &http3_module);
     CHECK(conf);
     conf->h3_socket_buffer_size = (apr_size_t)val;
+    return NULL;
+}
+
+static const char* set_h3_stream_timeout(cmd_parms* cmd, void* /*dummy*/, const char* arg)
+{
+    if (!arg || !*arg)
+    {
+        return "H3StreamTimeout: empty value";
+    }
+    apr_uint64_t val = 0;
+    apr_status_t rv = apr_cstr_atoui64(&val, arg);
+    if (rv == APR_EINVAL)
+    {
+        return apr_psprintf(cmd->pool, "H3StreamTimeout: '%s' is not a number", arg);
+    }
+    if (rv == APR_ERANGE)
+    {
+        return apr_psprintf(cmd->pool, "H3StreamTimeout: '%s' is out of representable range", arg);
+    }
+    if (val == 0 || val > H3_STREAM_TIMEOUT_MAX)
+    {
+        return apr_psprintf(cmd->pool, "H3StreamTimeout: '%s' is out of allowed range (1-%u)", arg, (unsigned)H3_STREAM_TIMEOUT_MAX);
+    }
+    h3_server_conf* conf = ap_get_module_config(cmd->server->module_config, &http3_module);
+    CHECK(conf);
+    conf->h3_stream_timeout = (apr_uint32_t)val;
+    return NULL;
+}
+
+static const char* set_h3_max_stream_errors(cmd_parms* cmd, void* /*dummy*/, const char* arg)
+{
+    if (!arg || !*arg)
+    {
+        return "H3MaxStreamErrors: empty value";
+    }
+    apr_uint64_t val = 0;
+    apr_status_t rv = apr_cstr_atoui64(&val, arg);
+    if (rv == APR_EINVAL)
+    {
+        return apr_psprintf(cmd->pool, "H3MaxStreamErrors: '%s' is not a number", arg);
+    }
+    if (rv == APR_ERANGE)
+    {
+        return apr_psprintf(cmd->pool, "H3MaxStreamErrors: '%s' is out of representable range", arg);
+    }
+    if (val == 0 || val > H3_MAX_STREAM_ERRORS_MAX)
+    {
+        return apr_psprintf(cmd->pool, "H3MaxStreamErrors: '%s' is out of allowed range (1-%u)", arg, (unsigned)H3_MAX_STREAM_ERRORS_MAX);
+    }
+    h3_server_conf* conf = ap_get_module_config(cmd->server->module_config, &http3_module);
+    CHECK(conf);
+    conf->h3_max_stream_errors = (apr_uint32_t)val;
     return NULL;
 }
 
@@ -472,6 +526,12 @@ int h3_post_config(apr_pool_t* /*p*/, apr_pool_t* /*plog*/, apr_pool_t* ptemp, s
             {
                 vc->h3_socket_buffer_size = H3_SOCKET_BUFFER_SIZE_DEFAULT;
             }
+            if (vc->h3_max_stream_errors == 0)
+            {
+                vc->h3_max_stream_errors = H3_MAX_STREAM_ERRORS_DEFAULT;
+            }
+            /* h3_stream_timeout is deliberately left at 0, which means "use the
+             * server's Timeout" where it is read. */
             if (vc->h3_max_request_body_size == 0)
             {
                 vc->h3_max_request_body_size = H3_MAX_REQUEST_BODY_SIZE_DEFAULT;
@@ -583,5 +643,8 @@ const command_rec cmd_15 = AP_INIT_TAKE1("H3SocketBufferSize", set_h3_socket_buf
 const command_rec cmd_16 = AP_INIT_FLAG("H3SessionTickets", set_h3_session_tickets, NULL, RSRC_CONF, "Whether to issue TLS session tickets so returning clients can resume instead of running a full handshake (default: on)");
 const command_rec cmd_17 = AP_INIT_FLAG("H3EarlyData", set_h3_early_data, NULL, RSRC_CONF, "Whether to accept 0-RTT data on resumed connections, where the active QUIC engine supports it (default: off)");
 
+const command_rec cmd_18 = AP_INIT_TAKE1("H3StreamTimeout", set_h3_stream_timeout, NULL, RSRC_CONF, "Seconds a response may make no progress before it is abandoned, so a client that stops reading cannot hold a worker (default: the server Timeout)");
+const command_rec cmd_19 = AP_INIT_TAKE1("H3MaxStreamErrors", set_h3_max_stream_errors, NULL, RSRC_CONF, "Client-caused stream errors tolerated on one connection before it is closed (default: 8)");
+
 const command_rec cmd_end = AP_INIT_TAKE1(NULL, NULL, NULL, RSRC_CONF, NULL);
-const command_rec h3_cmds[] = {cmd_1, cmd_2, cmd_3, cmd_4, cmd_5, cmd_6, cmd_7, cmd_8, cmd_9, cmd_10, cmd_11, cmd_12, cmd_13, cmd_14, cmd_15, cmd_16, cmd_17, cmd_end};
+const command_rec h3_cmds[] = {cmd_1, cmd_2, cmd_3, cmd_4, cmd_5, cmd_6, cmd_7, cmd_8, cmd_9, cmd_10, cmd_11, cmd_12, cmd_13, cmd_14, cmd_15, cmd_16, cmd_17, cmd_18, cmd_19, cmd_end};
