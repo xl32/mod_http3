@@ -31,6 +31,26 @@ v0.0.54 (unreleased)
      H3_EXCESSIVE_LOAD.
      [Alexander Gerasimov <codeguard gmail.com>]
 
+  *) Advertised a QPACK dynamic table, with H3QpackTableCapacity (default 4096)
+     and H3QpackBlockedStreams (default 16). nghttp3 defaults the decoder
+     capacity to 0, which tells a client it may not use the dynamic table at
+     all, so every request re-sent its cookies and user-agent literally -- worse
+     header compression than the same server gives over HTTP/2, whose HPACK
+     table is 4096 by default. Setting the capacity to 0 keeps the old
+     behaviour.
+     [Alexander Gerasimov <codeguard gmail.com>]
+
+  *) Added H3MinWorkers, H3MaxWorkers and H3MaxWorkerIdleSeconds. The request
+     worker pool was fixed at 16 threads growing to 64 with no way to tune it,
+     so a large machine could not use more and a small one could not use fewer.
+     The defaults are the previous fixed values, so nothing changes unless
+     configured.
+     [Alexander Gerasimov <codeguard gmail.com>]
+
+  *) Resolved mod_logio once at post_config instead of walking the loaded module
+     list, comparing names, on every connection and again on every request.
+     [Alexander Gerasimov <codeguard gmail.com>]
+
 v0.0.53 (2026-08-07)
 --------------------
   *) Rejected malformed HTTP/3 requests (missing or duplicate pseudo-header
