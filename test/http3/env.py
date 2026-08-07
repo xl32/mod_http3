@@ -90,6 +90,11 @@ class H3Conf(HttpdConf):
         h3_address_validation=None,
         h3_quic_engine=None,
         h3_socket_buffer_size=None,
+        h3_qpack_table_capacity=None,
+        h3_qpack_blocked_streams=None,
+        h3_min_workers=None,
+        h3_max_workers=None,
+        h3_max_worker_idle_seconds=None,
         h3_session_tickets=None,
         h3_early_data=None,
         extra_lines=None
@@ -130,6 +135,16 @@ class H3Conf(HttpdConf):
             self.add(f"H3AddressValidation {val}")
         if h3_socket_buffer_size is not None:
             self.add(f"H3SocketBufferSize {h3_socket_buffer_size}")
+        if h3_qpack_table_capacity is not None:
+            self.add(f"H3QpackTableCapacity {h3_qpack_table_capacity}")
+        if h3_qpack_blocked_streams is not None:
+            self.add(f"H3QpackBlockedStreams {h3_qpack_blocked_streams}")
+        if h3_min_workers is not None:
+            self.add(f"H3MinWorkers {h3_min_workers}")
+        if h3_max_workers is not None:
+            self.add(f"H3MaxWorkers {h3_max_workers}")
+        if h3_max_worker_idle_seconds is not None:
+            self.add(f"H3MaxWorkerIdleSeconds {h3_max_worker_idle_seconds}")
         if h3_session_tickets is not None:
             val = "on" if h3_session_tickets is True else ("off" if h3_session_tickets is False else h3_session_tickets)
             self.add(f"H3SessionTickets {val}")

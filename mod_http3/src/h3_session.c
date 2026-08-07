@@ -89,8 +89,19 @@ apr_status_t h3_session_create(h3_session** psession, server_rec* s, quic_conn* 
                             .begin_headers = on_begin_headers,
                             .stop_sending = on_stop_sending,
                             .reset_stream = on_reset_stream};
+    h3_server_conf* qconf = ap_get_module_config(s->module_config, &http3_module);
     nghttp3_settings settings = {0};
     nghttp3_settings_default(&settings);
+    /* nghttp3 defaults the decoder capacity to 0, which tells the client it may
+     * not use the QPACK dynamic table at all: every request then re-sends its
+     * cookies and user-agent literally, which is worse than HPACK gives the same
+     * server over HTTP/2. The encoder streams this needs are already bound in
+     * h3_session_create_control_streams. */
+    if (qconf)
+    {
+        settings.qpack_max_dtable_capacity = qconf->h3_qpack_table_capacity;
+        settings.qpack_blocked_streams = qconf->h3_qpack_blocked_streams;
+    }
     if (nghttp3_conn_server_new(&session->ngh3, &cb, &settings, nghttp3_mem_default(), session) != 0)
     {
         ap_log_error(APLOG_MARK, APLOG_ERR, 0, s, "nghttp3_conn_server_new failed");
