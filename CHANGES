@@ -3,7 +3,7 @@ mod_http3 changes
 Changes are listed most recent first.
 Security-related entries always appear at the top of their release block.
 
-v0.0.54 (unreleased)
+v0.0.54 (2026-08-07)
 --------------------
   *) Applied the core LimitRequestFields and LimitRequestFieldSize limits to
      HTTP/3 requests, and advertised the resulting bound as the HTTP/3
