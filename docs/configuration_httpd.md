@@ -46,6 +46,8 @@ UDP port the QUIC listener binds to. When unset, the module reuses the port of t
 
 On Linux the parent process binds this port at startup, while it still runs as root, so a port below 1024 needs no extra capability. The socket stays bound across graceful restarts; one child at a time serves it, and the next child takes it over when that child exits. On other platforms each child binds the port itself.
 
+To serve HTTP/3 from more than one child, set httpd's `ListenCoresBucketsRatio`. The parent then binds one `SO_REUSEPORT` socket per listener bucket, and one child serves each socket. The kernel sends all packets of a peer to the same socket, so a client that changes its address (connection migration) can lose its connection.
+
 ### H3MaxConcurrentStreams
 
 **Syntax:** `H3MaxConcurrentStreams n`
