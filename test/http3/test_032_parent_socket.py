@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 
 import pytest
 
@@ -51,5 +52,28 @@ class TestParentSocket:
         before = _udp_inodes(env.https_port)
         assert env.apache_reload() == 0
         assert before & _udp_inodes(env.https_port), "a graceful restart rebound the QUIC socket"
+        r = env.curl_get(env.mkurl("https", "test1", "/"), options=["--http3-only", "-k"])
+        assert r.exit_code == 0, r.stderr
+
+    def test_003_one_socket_per_listener_bucket(self, env):
+        """With ListenCoresBucketsRatio, the parent binds one SO_REUSEPORT socket per bucket and one child serves each."""
+        cpus = os.cpu_count() or 1
+        if cpus < 2:
+            pytest.skip("two buckets need two cores")
+        ratio = cpus // 2
+        buckets = cpus // ratio
+        H3Conf(env).add(f"ListenCoresBucketsRatio {ratio}").add_vhost_test1().install()
+        assert env.apache_restart() == 0
+        with open(os.path.join(env.server_dir, "httpd.pid")) as fd:
+            parent = int(fd.read().strip())
+        assert len(_udp_inodes(env.https_port) & _socket_inodes(parent)) == buckets
+        want = {f"@mod_http3.{env.https_port}.{i}" for i in range(buckets)}
+        for _ in range(50):
+            with open("/proc/net/unix") as fd:
+                owned = {line.split()[-1] for line in fd.readlines()[1:]}
+            if want <= owned:
+                break
+            time.sleep(0.1)
+        assert want <= owned, f"buckets without a child: {sorted(want - owned)}"
         r = env.curl_get(env.mkurl("https", "test1", "/"), options=["--http3-only", "-k"])
         assert r.exit_code == 0, r.stderr
