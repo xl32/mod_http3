@@ -63,3 +63,9 @@ HTTP/3 connections are UDP/QUIC connections, but request processing runs through
 The module's listener presents the certificate of the first VirtualHost that serves HTTP/3 (`h3` in `Protocols` on a host with a mod_ssl certificate); the certificate is loaded in `post_config`, before privileges drop. Name-based virtual host selection then uses the request authority. IP-based virtual hosts remain unsupported because the necessary per-connection local address is not currently recovered.
 
 See the [configuration guide](configuration.md) for operational control points.
+
+UDP batching (Linux): the engine sends the packets of one flush to one peer
+with one `sendmsg` and `UDP_SEGMENT` (GSO), and reads with `UDP_GRO`, which
+can join many datagrams in one read. If the kernel or the device refuses GSO,
+the engine turns it off and sends each packet alone. Other platforms send
+and read one datagram at a time.
