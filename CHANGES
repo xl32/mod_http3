@@ -5,10 +5,18 @@ Security-related entries always appear at the top of their release block.
 
 unreleased
 --------------------
+  *) On Linux the parent binds the QUIC socket while it still runs as root,
+     so H3Port 443 works without CAP_NET_BIND_SERVICE. The socket stays
+     bound across graceful restarts and the children inherit it; one child
+     at a time serves it.
+     [Alexander Gerasimov <codeguard gmail.com>]
+
   *) Linux: QUIC packets to one peer now go out in one sendmsg with
      UDP_SEGMENT (GSO), and reads use UDP_GRO. Without kernel support the
      module sends one packet at a time. A stream read now sends the new
      flow-control window at once, so a blocked client does not wait.
+     [Alexander Gerasimov <codeguard gmail.com>]
+
   *) Added H3MaxWindow (default 6 MiB). Flow-control windows for client
      uploads now grow when a client fills them within a few round trips,
      up to this cap, so uploads on long, fast paths are no longer held to

@@ -1,0 +1,55 @@
+import os
+import sys
+
+import pytest
+
+from .env import H3Conf
+
+pytestmark = pytest.mark.skipif(not sys.platform.startswith("linux"), reason="the parent binds the QUIC socket on Linux only")
+
+
+def _udp_inodes(port):
+    """Socket inodes bound to UDP port, from /proc/net/udp and udp6."""
+    found = set()
+    for name in ("udp", "udp6"):
+        with open(f"/proc/net/{name}") as fd:
+            for line in fd.readlines()[1:]:
+                cols = line.split()
+                if int(cols[1].rsplit(":", 1)[1], 16) == port:
+                    found.add(cols[9])
+    return found
+
+
+def _socket_inodes(pid):
+    inodes = set()
+    for fd in os.listdir(f"/proc/{pid}/fd"):
+        try:
+            link = os.readlink(f"/proc/{pid}/fd/{fd}")
+        except OSError:
+            continue
+        if link.startswith("socket:["):
+            inodes.add(link[8:-1])
+    return inodes
+
+
+class TestParentSocket:
+    """The parent binds the QUIC socket before it drops privileges, so ports below 1024 work."""
+
+    def test_001_parent_holds_the_quic_socket(self, env):
+        H3Conf(env).add_vhost_test1().install()
+        assert env.apache_restart() == 0
+        with open(os.path.join(env.server_dir, "httpd.pid")) as fd:
+            parent = int(fd.read().strip())
+        bound = _udp_inodes(env.https_port)
+        assert bound, "nothing is bound to the QUIC port"
+        assert bound & _socket_inodes(parent), "the parent does not hold the QUIC socket"
+
+    def test_002_socket_survives_a_graceful_restart(self, env):
+        """The same socket stays bound across a graceful restart, so the port is never released."""
+        H3Conf(env).add_vhost_test1().install()
+        assert env.apache_restart() == 0
+        before = _udp_inodes(env.https_port)
+        assert env.apache_reload() == 0
+        assert before & _udp_inodes(env.https_port), "a graceful restart rebound the QUIC socket"
+        r = env.curl_get(env.mkurl("https", "test1", "/"), options=["--http3-only", "-k"])
+        assert r.exit_code == 0, r.stderr
