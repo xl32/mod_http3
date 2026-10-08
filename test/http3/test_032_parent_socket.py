@@ -33,14 +33,22 @@ def _socket_inodes(pid):
     return inodes
 
 
+def _parent_pid(env):
+    """A relative PidFile resolves against the runtime dir: ServerRoot or logs/, by build."""
+    for path in (os.path.join(env.server_dir, "httpd.pid"), os.path.join(env.server_dir, "logs", "httpd.pid")):
+        if os.path.exists(path):
+            with open(path) as fd:
+                return int(fd.read().strip())
+    raise FileNotFoundError("httpd.pid")
+
+
 class TestParentSocket:
     """The parent binds the QUIC socket before it drops privileges, so ports below 1024 work."""
 
     def test_001_parent_holds_the_quic_socket(self, env):
         H3Conf(env).add_vhost_test1().install()
         assert env.apache_restart() == 0
-        with open(os.path.join(env.server_dir, "httpd.pid")) as fd:
-            parent = int(fd.read().strip())
+        parent = _parent_pid(env)
         bound = _udp_inodes(env.https_port)
         assert bound, "nothing is bound to the QUIC port"
         assert bound & _socket_inodes(parent), "the parent does not hold the QUIC socket"
@@ -64,8 +72,7 @@ class TestParentSocket:
         buckets = cpus // ratio
         H3Conf(env).add(f"ListenCoresBucketsRatio {ratio}").add_vhost_test1().install()
         assert env.apache_restart() == 0
-        with open(os.path.join(env.server_dir, "httpd.pid")) as fd:
-            parent = int(fd.read().strip())
+        parent = _parent_pid(env)
         assert len(_udp_inodes(env.https_port) & _socket_inodes(parent)) == buckets
         want = {f"@mod_http3.{env.https_port}.{i}" for i in range(buckets)}
         for _ in range(50):
