@@ -44,6 +44,8 @@ certificate (`SSLEngine off`, or mod_ssl not loaded) does not serve HTTP/3.
 
 UDP port the QUIC listener binds to. When unset, the module reuses the port of the VirtualHost that serves HTTP/3, so TCP (HTTP/1.1, HTTP/2) and UDP (HTTP/3) share the same port number. Set it explicitly to serve HTTP/3 on a different port.
 
+On Linux the parent process binds this port at startup, while it still runs as root, so a port below 1024 needs no extra capability. The socket stays bound across graceful restarts; one child at a time serves it, and the next child takes it over when that child exits. On other platforms each child binds the port itself.
+
 ### H3MaxConcurrentStreams
 
 **Syntax:** `H3MaxConcurrentStreams n`

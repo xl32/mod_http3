@@ -5,6 +5,12 @@ Security-related entries always appear at the top of their release block.
 
 unreleased
 --------------------
+  *) On Linux the parent binds the QUIC socket while it still runs as root,
+     so H3Port 443 works without CAP_NET_BIND_SERVICE. The socket stays
+     bound across graceful restarts and the children inherit it; one child
+     at a time serves it.
+     [Alexander Gerasimov <codeguard gmail.com>]
+
   *) Added H3EarlyData (default off). A resumed client may send its first
      request as 0-RTT data and gets the response one round trip sooner.
      Only safe methods run before the handshake completes; other methods
