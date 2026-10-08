@@ -68,6 +68,14 @@ Maximum number of concurrent QUIC/HTTP/3 connections per child process. New conn
 
 Bytes requested for the QUIC socket's send and receive buffers (`SO_SNDBUF` and `SO_RCVBUF`). The operating system caps what it grants -- on Linux through `net.core.wmem_max` and `net.core.rmem_max` -- and a refused or capped request is logged at `info` level rather than treated as an error, so raising this alone may not take effect. A receive buffer left at the OS default overflows once a single connection runs at speed, and every dropped datagram costs a retransmit and a congestion-window reduction.
 
+### H3MaxWindow
+
+**Syntax:** `H3MaxWindow bytes`
+**Context:** server config, virtual host
+**Default:** `6291456`
+
+The largest flow-control window that a client gets for its uploads, per connection and per stream. The windows start at 1 MiB per connection and 256 KiB per stream. When a client fills a window within a few round trips, the server doubles it, up to this value, so an upload on a long, fast path is not held back by a small fixed window. Each connection can then hold up to this many bytes of request data before the module reads them; lower it to save memory. The value must be from 1048576 (no growth past the start) to 1073741824.
+
 ### H3StreamBufferSize
 
 **Syntax:** `H3StreamBufferSize bytes`

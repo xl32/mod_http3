@@ -5,6 +5,12 @@ Security-related entries always appear at the top of their release block.
 
 unreleased
 --------------------
+  *) Added H3MaxWindow (default 6 MiB). Flow-control windows for client
+     uploads now grow when a client fills them within a few round trips,
+     up to this cap, so uploads on long, fast paths are no longer held to
+     a fixed 1 MiB window.
+     [Alexander Gerasimov <codeguard gmail.com>]
+
   *) Added H3EarlyData (default off). A resumed client may send its first
      request as 0-RTT data and gets the response one round trip sooner.
      Only safe methods run before the handshake completes; other methods
