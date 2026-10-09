@@ -5,6 +5,11 @@ Security-related entries always appear at the top of their release block.
 
 unreleased
 --------------------
+  *) Fixed a graceful restart that never ended: a handshake still pending
+     when the child started to drain did not finish or time out, so the old
+     child kept its connection count and the port.
+     [Alexander Gerasimov <codeguard gmail.com>]
+
   *) Fixed a heap race that crashed the child: worker threads and the event
      thread allocated from one session allocator that had no mutex.
      [Alexander Gerasimov <codeguard gmail.com>]
