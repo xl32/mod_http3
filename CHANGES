@@ -3,7 +3,7 @@ mod_http3 changes
 Changes are listed most recent first.
 Security-related entries always appear at the top of their release block.
 
-unreleased
+v0.0.72 (2026-10-09)
 --------------------
   *) On Linux, with ListenCoresBucketsRatio, the parent binds one
      SO_REUSEPORT QUIC socket per listener bucket and one child serves
