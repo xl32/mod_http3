@@ -53,7 +53,9 @@ apr_status_t h3_socket_open(apr_port_t port, apr_size_t buffer_size, apr_pool_t*
  * @param errlen Capacity of @p err.
  * @return 1 if attached, 0 if not (nothing changed).
  */
+#ifdef __linux__
 int h3_socket_route_by_cid(const int* fds, int n, char* err, size_t errlen);
+#endif
 
 /**
  * Close a UDP socket previously returned by h3_socket_open.

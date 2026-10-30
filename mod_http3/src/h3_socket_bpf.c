@@ -16,20 +16,17 @@
  * limitations under the License.
  */
 
-#include <stdio.h>
-
-#include "h3_socket.h"
-
 #ifdef __linux__
+
     #include <errno.h>
     #include <stdint.h>
+    #include <stdio.h>
     #include <string.h>
     #include <sys/socket.h>
     #include <sys/syscall.h>
     #include <unistd.h>
-#endif
 
-#if defined(__linux__) && defined(__NR_bpf)
+    #include "h3_socket.h"
 
 /* Kernel ABI numbers, defined here so that old headers (EL7) still build. */
     #define BPF_MAP_CREATE 0
@@ -179,16 +176,6 @@ done:
         close(map);
     }
     return ok;
-}
-
-#else
-
-int h3_socket_route_by_cid(const int* fds, int n, char* err, size_t errlen)
-{
-    (void)fds;
-    (void)n;
-    snprintf(err, errlen, "not supported on this platform");
-    return 0;
 }
 
 #endif
