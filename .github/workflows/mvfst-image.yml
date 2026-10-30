@@ -1,0 +1,46 @@
+name: mvfst-image
+
+# ghcr.io/facebook/proxygen/mvfst-interop is gone since 2026-10-19 (their weekly
+# build fails). Build the same image from a proxygen tag that built, and keep it here.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: proxygen tag
+        default: v2026.10.12.00
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - name: Checkout proxygen
+        uses: actions/checkout@v7
+        with:
+          repository: facebook/proxygen
+          ref: ${{ inputs.ref }}
+
+      - name: Set up buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to ghcr
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: proxygen/httpserver/samples/hq/quic-interop/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/mvfst-interop:${{ inputs.ref }}
+            ghcr.io/${{ github.repository_owner }}/mvfst-interop:latest

@@ -129,6 +129,13 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tshark
           sudo modprobe ip6table_filter
 
+      - name: Use our mvfst image
+        # Facebook's image is gone; mvfst-image.yml builds the same one here.
+        run: |
+          jq --arg image "ghcr.io/${{ github.repository_owner }}/mvfst-interop:latest" \
+             'if .mvfst then .mvfst.image = $image else . end' implementations_quic.json >impls.json
+          mv impls.json implementations_quic.json
+
       - name: Pull images
         run: |
           docker pull "$IMAGE"
