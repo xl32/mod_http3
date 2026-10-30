@@ -133,8 +133,16 @@ jobs:
         run: |
           docker pull "$IMAGE"
           python pull.py -i "$CLIENT"
+          # A client whose image upstream removed is not our failure: skip it.
+          client_image=$(jq -r --arg c "$CLIENT" '.[$c].image' implementations_quic.json)
+          if ! docker image inspect "$client_image" >/dev/null 2>&1; then
+            echo "::warning title=$CLIENT::no client image $client_image, skipped"
+            echo "### $CLIENT — skipped, no image" >>"$GITHUB_STEP_SUMMARY"
+            echo "NO_IMAGE=1" >>"$GITHUB_ENV"
+          fi
 
       - name: Register endpoint
+        if: env.NO_IMAGE != '1'
         run: |
           jq --arg image "$IMAGE" --arg url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
              '. + {mod_http3: {image: $image, role: "server", url: $url}}' \
@@ -142,6 +150,7 @@ jobs:
           mv impls.json implementations_quic.json
 
       - name: Run matrix
+        if: env.NO_IMAGE != '1'
         # The runner's tshark can crash on a cut capture: allow 2 failed tries.
         run: |
           for try in 1 2 3; do
@@ -153,6 +162,7 @@ jobs:
           done
 
       - name: Report verdict
+        if: env.NO_IMAGE != '1'
         run: |
           result=$(jq -r '.results[0][0].result' results.json 2>/dev/null || echo 'no result')
           echo "### $CLIENT — \`$result\`" >>"$GITHUB_STEP_SUMMARY"
