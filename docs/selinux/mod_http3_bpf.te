@@ -1,0 +1,20 @@
+# Example: let the httpd parent load the mod_http3 QUIC socket router (0.0.74+).
+# This gives httpd_t more power. Install it only if you want client migration
+# with ListenCoresBucketsRatio:
+#   checkmodule -M -m -o mod_http3_bpf.mod mod_http3_bpf.te
+#   semodule_package -o mod_http3_bpf.pp -m mod_http3_bpf.mod
+#   semodule -i mod_http3_bpf.pp
+# EL8 (kernel 4.18) checks sys_admin; EL9 and later check bpf and net_admin.
+# EL8 policy has no capability2 bpf: remove it there.
+module mod_http3_bpf 1.0;
+
+require {
+    type httpd_t;
+    class bpf { map_create map_read map_write prog_load prog_run };
+    class capability { sys_admin net_admin };
+    class capability2 { bpf };
+}
+
+allow httpd_t self:bpf { map_create map_read map_write prog_load prog_run };
+allow httpd_t self:capability { sys_admin net_admin };
+allow httpd_t self:capability2 bpf;

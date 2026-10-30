@@ -3,6 +3,16 @@ mod_http3 changes
 Changes are listed most recent first.
 Security-related entries always appear at the top of their release block.
 
+v0.0.74 (2026-10-30)
+--------------------
+  *) Linux: with ListenCoresBucketsRatio, connection migration works. Byte 0
+     of each server connection ID holds the bucket number, and an
+     SK_REUSEPORT eBPF program sends each packet to the socket of that
+     bucket. The server no longer sends disable_active_migration. If the
+     program cannot load (kernel before 4.19, no CAP_BPF, SELinux, seccomp),
+     a warning gives the reason and 0.0.73 behaviour stays.
+     [Alexander Gerasimov <codeguard gmail.com>]
+
 v0.0.73 (2026-10-29)
 --------------------
   *) Linux: on a [::] socket, a reply now goes out from the address the

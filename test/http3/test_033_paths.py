@@ -68,6 +68,7 @@ class _Client:
         config = QuicConfiguration(is_client=True, alpn_protocols=H3_ALPN, verify_mode=ssl.CERT_NONE, server_name=f"test1.{env.http_tld}")
         self.quic = _Conn(configuration=config)
         self.ecn_in = []
+        self.events = []
         self.done = False
 
     def run(self, seconds, until_done=True):
@@ -86,6 +87,7 @@ class _Client:
             self.ecn_in += [e for e in (_ecn(*c) for c in anc) if e is not None]
             self.quic.receive_datagram(data, self.target, now=time.monotonic())
             while (event := self.quic.next_event()) is not None:
+                self.events.append(event)
                 if isinstance(event, quic_events.HandshakeCompleted):
                     self.done = True
         return self.done
@@ -177,7 +179,7 @@ class TestEcn:
 
 
 class TestMigration:
-    """disable_active_migration goes out only when more than one SO_REUSEPORT socket serves the port."""
+    """disable_active_migration goes out only with more than one SO_REUSEPORT socket and no routing by connection ID."""
 
     def _params(self, env):
         c = _Client(env, "127.0.0.1")
@@ -191,13 +193,16 @@ class TestMigration:
         assert env.apache_restart() == 0
         assert not self._params(env).disable_active_migration
 
-    def test_002_buckets_disable_migration(self, env):
+    def test_002_buckets_disable_migration_without_routing(self, env):
         cpus = os.cpu_count() or 1
         if cpus < 2:
             pytest.skip("two buckets need two cores")
+        env.httpd_error_log.clear_log()
         H3Conf(env).add(f"ListenCoresBucketsRatio {cpus // 2}").add_vhost_test1().install()
         assert env.apache_restart() == 0
-        assert self._params(env).disable_active_migration
+        with open(env.httpd_error_log.path) as fd:
+            routing_off = "routing by connection ID is off" in fd.read()
+        assert self._params(env).disable_active_migration == routing_off
 
 
 def _children(env):
