@@ -34,6 +34,25 @@ A release tags that same image `:X.Y.Z` and `:latest`, so
 `mod_http3-interop:latest` always points at an endpoint whose matrix is public
 and reproducible.
 
+### The mvfst client image is ours
+
+Facebook deleted `ghcr.io/facebook/proxygen/mvfst-interop` in October 2026:
+their weekly build failed from 2026-10-19, because `releases.pagure.org` no
+longer serves the libaio tarball that proxygen's `getdeps.sh` downloads.
+
+[`.github/workflows/mvfst-image.yml`](../.github/workflows/mvfst-image.yml)
+builds the same image from Facebook's own Dockerfile
+(`proxygen/httpserver/samples/hq/quic-interop/Dockerfile`) at proxygen tag
+`v2026.10.12.00`, their last good build. It installs the distro `libaio-dev`
+first, so `getdeps.sh --allow-system-packages` does not download libaio. It
+pushes `ghcr.io/xl32/mvfst-interop:<tag>` and `:latest`. Run it by hand, with
+a newer proxygen tag when necessary.
+
+The `test` job replaces the mvfst image in `implementations_quic.json` with
+`ghcr.io/<owner>/mvfst-interop:latest` before it pulls. If the image of any
+client cannot be pulled, the job gives a warning and a "skipped, no image" line
+in the summary, not a failure: nothing reached mod_http3.
+
 ## Reading the results
 
 Each `test` job writes its verdict to the workflow summary. A client that does
