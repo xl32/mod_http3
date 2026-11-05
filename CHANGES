@@ -13,6 +13,12 @@ Unreleased
      HTTP/3. From apache/httpd PR #944.
      [Michiel Beijen, Alexander Gerasimov <codeguard gmail.com>]
 
+  *) A client could open only H3MaxConcurrentStreams streams over the life
+     of a connection: the server never gave stream credit back when a
+     client stream closed, so the client stalled after that many requests
+     (100 by default). Broken since v0.0.72.
+     [Alexander Gerasimov <codeguard gmail.com>]
+
 v0.0.74 (2026-10-30)
 --------------------
   *) Linux: with ListenCoresBucketsRatio, connection migration works. Byte 0
