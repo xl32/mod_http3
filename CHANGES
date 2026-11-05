@@ -3,6 +3,16 @@ mod_http3 changes
 Changes are listed most recent first.
 Security-related entries always appear at the top of their release block.
 
+v0.0.75 (2026-11-05)
+--------------------
+  *) SECURITY: HTTP/3 requests now run ap_check_request_header() and the
+     post_read_request hooks, as HTTP/1.1 and HTTP/2 do. Before, server-level
+     SetEnvIf and BrowserMatch, RemoteIPHeader, RequestHeader early and
+     StrictHostCheck did not apply to HTTP/3, so a rule such as
+     "Require not env bad_bot" could give 403 over HTTP/1.1 and 200 over
+     HTTP/3. From apache/httpd PR #944.
+     [Michiel Beijen, Alexander Gerasimov <codeguard gmail.com>]
+
 v0.0.74 (2026-10-30)
 --------------------
   *) Linux: with ListenCoresBucketsRatio, connection migration works. Byte 0
