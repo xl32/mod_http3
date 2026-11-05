@@ -133,7 +133,6 @@ static int cb_acked_stream_data_offset(ngtcp2_conn* qconn, int64_t stream_id, ui
 
 static int cb_stream_close(ngtcp2_conn* qconn, uint32_t flags, int64_t stream_id, uint64_t app_error_code, void* user_data, void* stream_user_data)
 {
-    (void)qconn;
     (void)flags;
     (void)app_error_code;
     (void)stream_user_data;
@@ -143,6 +142,14 @@ static int cb_stream_close(ngtcp2_conn* qconn, uint32_t flags, int64_t stream_id
         st->fin = 1;
         st->write_closed = 1;
         st->engine_closed = 1;
+    }
+    /* ngtcp2 leaves stream credit to the application: give the peer one stream back, or it stops after its initial MAX_STREAMS. */
+    if (!ngtcp2_conn_is_local_stream(qconn, stream_id))
+    {
+        if (ngtcp2_is_bidi_stream(stream_id))
+            ngtcp2_conn_extend_max_streams_bidi(qconn, 1);
+        else
+            ngtcp2_conn_extend_max_streams_uni(qconn, 1);
     }
     return 0;
 }
