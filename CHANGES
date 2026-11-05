@@ -3,8 +3,8 @@ mod_http3 changes
 Changes are listed most recent first.
 Security-related entries always appear at the top of their release block.
 
-Unreleased
-----------
+v0.0.75 (2026-11-05)
+--------------------
   *) SECURITY: HTTP/3 requests now run ap_check_request_header() and the
      post_read_request hooks, as HTTP/1.1 and HTTP/2 do. Before, server-level
      SetEnvIf and BrowserMatch, RemoteIPHeader, RequestHeader early and
