@@ -12,7 +12,7 @@ from aioquic.quic.configuration import QuicConfiguration
 from .env import H3Conf
 from .test_020_malformed import _RawRequestClient
 
-# RFC 9218 section 7.2: PRIORITY_UPDATE for a request stream
+# RFC 9218 section 7: PRIORITY_UPDATE for a request stream
 FRAME_TYPE_PRIORITY_UPDATE = 0xF0700
 
 
@@ -30,6 +30,12 @@ class _PriorityClient(_RawRequestClient):
 
     async def get_with_priority(self, authority, path):
         sid = self._quic.get_next_available_stream_id()
+        # Refer only to a stream the client may open: past the peer's
+        # MAX_STREAMS it is H3_ID_ERROR (RFC 9218 section 7).
+        for _ in range(100):
+            if sid // 4 < self._quic._remote_max_streams_bidi:
+                break
+            await asyncio.sleep(0.02)
         payload = encode_uint_var(sid) + b"u=2"
         self._quic.send_stream_data(self._http._local_control_stream_id,
                                     encode_uint_var(FRAME_TYPE_PRIORITY_UPDATE)
