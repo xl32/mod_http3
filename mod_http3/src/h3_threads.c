@@ -96,12 +96,29 @@ void* APR_THREAD_FUNC h3_event_thread(apr_thread_t* thread, void* data)
             progress_pending_handshakes(io);
         }
 
+        apr_time_t now = apr_time_now();
         for (int i = 0; i < io->active_sessions->nelts;)
         {
             h3_session* session = ((h3_session**)io->active_sessions->elts)[i];
+
+            /* Skip a session with nothing new: no busy worker, no packet, timer or
+             * stream limit change in the engine, no worker output. The sweep still
+             * serves it once a second, for its idle and stream timeouts. */
+            if (!io->draining && io->thread_running && !session->aborted
+                && apr_atomic_read32(&session->active_tasks) == 0
+                && !h3q_conn_take_activity(session->qconn)
+                && !apr_atomic_xchg32(&session->wake, 0)
+                && now < session->next_sweep)
+            {
+                i++;
+                continue;
+            }
+            session->next_sweep = now + apr_time_from_sec(1);
+
             if (service_session_pass(io, session))
             {
                 work_pending = 1;
+                apr_atomic_set32(&session->wake, 1); /* the pass ran out of budget: serve it again next round */
             }
 
             if (session->aborted)
