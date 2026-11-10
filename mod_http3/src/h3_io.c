@@ -445,10 +445,18 @@ int service_session_pass(h3_io_t* io, h3_session* session)
 
     if (io->draining || !io->thread_running)
     {
+        int stopping = !io->thread_running && !session->goaway_deadline;
         apr_thread_mutex_lock(session->lock);
         if (!session->goaway_sent)
         {
             nghttp3_conn_submit_shutdown_notice(session->ngh3);
+        }
+        /* nghttp3 reports a connection drained only after the final GOAWAY,
+         * so send it as soon as the child stops: an idle connection then
+         * closes at once instead of waiting out the grace period. */
+        if (stopping)
+        {
+            nghttp3_conn_shutdown(session->ngh3);
         }
         flush_nghttp3(session);
         int drained = nghttp3_conn_is_drained2(session->ngh3);
@@ -458,17 +466,13 @@ int service_session_pass(h3_io_t* io, h3_session* session)
             session->goaway_sent = 1;
             ap_log_error(APLOG_MARK, APLOG_INFO, 0, s, "sent HTTP/3 GOAWAY; letting in-flight streams finish");
         }
-        if (!io->thread_running && !session->goaway_deadline)
+        if (stopping)
         {
             session->goaway_deadline = apr_time_now() + apr_time_from_sec(H3_GOAWAY_GRACE_SECS);
             ap_log_error(APLOG_MARK, APLOG_INFO, 0, s, "stopping: allowing up to %d more second(s) for in-flight streams", H3_GOAWAY_GRACE_SECS);
         }
         if (drained || (session->goaway_deadline && apr_time_now() >= session->goaway_deadline))
         {
-            apr_thread_mutex_lock(session->lock);
-            nghttp3_conn_shutdown(session->ngh3);
-            flush_nghttp3(session);
-            apr_thread_mutex_unlock(session->lock);
             session->aborted = 1;
             return 0;
         }
