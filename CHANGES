@@ -3,6 +3,22 @@ mod_http3 changes
 Changes are listed most recent first.
 Security-related entries always appear at the top of their release block.
 
+v0.0.77 (2026-11-10)
+--------------------
+  *) A connection is no longer closed with H3_ID_ERROR after
+     H3MaxConcurrentStreams requests (100 by default). Since v0.0.75 the
+     server gives the client a stream back each time one closes, but
+     nghttp3 kept the first limit, so a PRIORITY_UPDATE for a newer
+     stream, as browsers send, was a protocol error. nghttp3 now gets each
+     new limit from MAX_STREAMS. From Jean-Frederic Clere's ngtcp2 branch.
+     [Alexander Gerasimov <codeguard gmail.com>]
+
+  *) The event thread no longer serves every connection on each wakeup.
+     It skips a connection with no new packet, timer, stream limit change
+     or worker output, and still serves each one at least once a second
+     for its timeouts.
+     [Alexander Gerasimov <codeguard gmail.com>]
+
 v0.0.76 (2026-11-10)
 --------------------
   *) On a stop, the final GOAWAY goes out at once. Before, nghttp3 could
