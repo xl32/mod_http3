@@ -52,7 +52,7 @@ static apr_thread_t* port_acquire_thread = NULL;
 
 struct port_acquire_args
 {
-    apr_pool_t* pchild;
+    apr_pool_t* pool;
     server_rec* vhost;
     h3_server_conf* conf;
 };
@@ -151,7 +151,7 @@ static void* APR_THREAD_FUNC port_acquire_thread_fn(apr_thread_t* thread H3_UNUS
     while (!child_stopping)
     {
         int udp_fd = -1;
-        apr_status_t rv = acquire_port(args->pchild, args->vhost, args->conf, &udp_fd);
+        apr_status_t rv = acquire_port(args->pool, args->vhost, args->conf, &udp_fd);
         if (rv == APR_EAGAIN)
         {
             apr_sleep(apr_time_from_msec(H3_PORT_ACQUIRE_RETRY_MS));
@@ -167,7 +167,7 @@ static void* APR_THREAD_FUNC port_acquire_thread_fn(apr_thread_t* thread H3_UNUS
             release_port(udp_fd);
             break;
         }
-        if (h3_io_listen_start(args->pchild, args->vhost, args->conf, udp_fd) != APR_SUCCESS)
+        if (h3_io_listen_start(args->pool, args->vhost, args->conf, udp_fd) != APR_SUCCESS)
         {
             ap_log_error(APLOG_MARK, APLOG_ERR, 0, args->vhost, "port acquirer: h3_io_listen_start failed");
             release_port(udp_fd);
@@ -198,6 +198,12 @@ static h3_server_conf* find_h3_server(server_rec* s, server_rec** out_server)
     return conf;
 }
 
+static apr_status_t child_pool_cleanup(void* data H3_UNUSED)
+{
+    h3_c1_child_stopping(NULL, 0);
+    return APR_SUCCESS;
+}
+
 void h3_child_init(apr_pool_t* pchild, server_rec* s)
 {
     server_rec* vhost = NULL;
@@ -208,17 +214,31 @@ void h3_child_init(apr_pool_t* pchild, server_rec* s)
         return;
     }
 
+    /* The HTTP/3 threads must stop before the child pool goes. Most MPMs stop
+     * them through child_stopping, but prefork skips that hook when a child
+     * exits from a signal handler. */
+    apr_pool_pre_cleanup_register(pchild, NULL, child_pool_cleanup);
+    /* The threads allocate while the MPM does, and prefork's child pool
+     * allocator has no mutex: give them a locked pool of their own. */
+    apr_pool_t* pool = NULL;
+    if (h3_locked_pool_create(pchild, &pool) != APR_SUCCESS)
+    {
+        ap_log_error(APLOG_MARK, APLOG_ERR, 0, vhost, "h3_child_init: could not create the HTTP/3 pool");
+        return;
+    }
+    apr_pool_tag(pool, "h3_child");
+
     int udp_fd = -1;
-    apr_status_t rv = acquire_port(pchild, vhost, conf, &udp_fd);
+    apr_status_t rv = acquire_port(pool, vhost, conf, &udp_fd);
     if (rv == APR_EAGAIN)
     {
         ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, vhost, "h3_child_init: pid=%d port already owned, will keep retrying in background", h3_getpid());
-        struct port_acquire_args* args = apr_palloc(pchild, sizeof(*args));
-        args->pchild = pchild;
+        struct port_acquire_args* args = apr_palloc(pool, sizeof(*args));
+        args->pool = pool;
         args->vhost = vhost;
         args->conf = conf;
         apr_threadattr_t* attr = NULL;
-        if (apr_threadattr_create(&attr, pchild) != APR_SUCCESS || apr_thread_create(&port_acquire_thread, attr, port_acquire_thread_fn, args, pchild) != APR_SUCCESS)
+        if (apr_threadattr_create(&attr, pool) != APR_SUCCESS || apr_thread_create(&port_acquire_thread, attr, port_acquire_thread_fn, args, pool) != APR_SUCCESS)
         {
             ap_log_error(APLOG_MARK, APLOG_ERR, 0, vhost, "h3_child_init: failed to start port acquirer thread");
             port_acquire_thread = NULL;
@@ -230,7 +250,7 @@ void h3_child_init(apr_pool_t* pchild, server_rec* s)
         ap_log_error(APLOG_MARK, APLOG_ERR, 0, vhost, "h3_child_init: h3_socket_open failed");
         return;
     }
-    if (h3_io_listen_start(pchild, vhost, conf, udp_fd) != APR_SUCCESS)
+    if (h3_io_listen_start(pool, vhost, conf, udp_fd) != APR_SUCCESS)
     {
         ap_log_error(APLOG_MARK, APLOG_ERR, 0, vhost, "h3_child_init: h3_io_listen_start failed");
         release_port(udp_fd);

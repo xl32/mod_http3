@@ -98,17 +98,7 @@ static void teardown(h3_io_t* io)
         h3_socket_close(io->udp_fd);
         io->udp_fd = -1;
     }
-    /* Both wakeup sockets belong to the child pool and close with it. */
-}
-
-static apr_status_t listen_stop_cleanup(void* data)
-{
-    h3_io_t* io = data;
-    if (io && io->draining)
-    {
-        h3_io_listen_stop(io);
-    }
-    return APR_SUCCESS;
+    /* Both wakeup sockets belong to the HTTP/3 pool and close with it. */
 }
 
 apr_status_t h3_io_listen_start(apr_pool_t* pchild, server_rec* s, h3_server_conf* conf, int udp_fd)
@@ -177,7 +167,6 @@ apr_status_t h3_io_listen_start(apr_pool_t* pchild, server_rec* s, h3_server_con
         child_h3_io = NULL;
         return APR_EGENERAL;
     }
-    apr_pool_pre_cleanup_register(pchild, io, listen_stop_cleanup);
     ap_log_error(APLOG_MARK, APLOG_INFO, 0, s, "mod_http3 loaded with version: %d (%s) on pid=%d port=%d; built against httpd %d.%d.%d MMN %d:%d (%s)", MOD_HTTP3_VERSION, MOD_HTTP3_VERSION_STRING, h3_getpid(), (int)conf->h3_port, AP_SERVER_MAJORVERSION_NUMBER, AP_SERVER_MINORVERSION_NUMBER,
                  AP_SERVER_PATCHLEVEL_NUMBER, MODULE_MAGIC_NUMBER_MAJOR, MODULE_MAGIC_NUMBER_MINOR, H3_DEVEL ? "devel" : "stable");
     return APR_SUCCESS;
@@ -267,32 +256,41 @@ void remove_pending_handshake(h3_io_t* io, int index, int free_conn)
     io->pending_handshakes->nelts--;
 }
 
-static apr_status_t spawn_serviced_session(h3_io_t* io, h3q_conn* conn)
+apr_status_t h3_locked_pool_create(apr_pool_t* parent, apr_pool_t** out)
 {
     apr_allocator_t* allocator = NULL;
+    apr_thread_mutex_t* mutex = NULL;
+    if (apr_allocator_create(&allocator) != APR_SUCCESS)
+    {
+        return APR_ENOMEM;
+    }
+    if (apr_pool_create_ex(out, parent, NULL, allocator) != APR_SUCCESS)
+    {
+        apr_allocator_destroy(allocator);
+        return APR_ENOMEM;
+    }
+    apr_allocator_owner_set(allocator, *out);
+    if (apr_thread_mutex_create(&mutex, APR_THREAD_MUTEX_DEFAULT, *out) != APR_SUCCESS)
+    {
+        apr_pool_destroy(*out);
+        return APR_EGENERAL;
+    }
+    apr_allocator_mutex_set(allocator, mutex);
+    return APR_SUCCESS;
+}
+
+static apr_status_t spawn_serviced_session(h3_io_t* io, h3q_conn* conn)
+{
+    /* Workers allocate from stream subpools while this thread makes its own: share the allocator safely. */
     apr_pool_t* session_pool = NULL;
-    if (apr_allocator_create(&allocator) != APR_SUCCESS || apr_pool_create_ex(&session_pool, io->pool, NULL, allocator) != APR_SUCCESS)
+    if (h3_locked_pool_create(io->pool, &session_pool) != APR_SUCCESS)
     {
         ap_log_error(APLOG_MARK, APLOG_ERR, 0, io->server, "failed to create session pool for new connection");
-        if (allocator)
-        {
-            apr_allocator_destroy(allocator);
-        }
         h3q_conn_free(conn);
         return APR_EGENERAL;
     }
-    apr_allocator_owner_set(allocator, session_pool);
-    apr_allocator_max_free_set(allocator, ap_max_mem_free); /* MaxMemFree: an idle connection gives back its peak */
+    apr_allocator_max_free_set(apr_pool_allocator_get(session_pool), ap_max_mem_free); /* MaxMemFree: an idle connection gives back its peak */
     apr_pool_tag(session_pool, "h3_session");
-    /* Workers allocate from stream subpools while this thread makes its own: share the allocator safely. */
-    apr_thread_mutex_t* alloc_mutex = NULL;
-    if (apr_thread_mutex_create(&alloc_mutex, APR_THREAD_MUTEX_DEFAULT, session_pool) != APR_SUCCESS)
-    {
-        apr_pool_destroy(session_pool);
-        h3q_conn_free(conn);
-        return APR_EGENERAL;
-    }
-    apr_allocator_mutex_set(allocator, alloc_mutex);
 
     h3_session* session = NULL;
     if (h3_session_create(&session, io->server, conn, session_pool) != APR_SUCCESS)

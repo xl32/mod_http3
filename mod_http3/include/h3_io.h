@@ -101,6 +101,15 @@ void h3_io_listen_drain(h3_io_t* io);
 void h3_io_listen_stop(h3_io_t* io);
 
 /**
+ * @brief Create a subpool with its own allocator, locked so that threads can share it.
+ *
+ * @param parent Parent pool.
+ * @param out    Receives the new pool.
+ * @return APR_SUCCESS or an APR error code.
+ */
+apr_status_t h3_locked_pool_create(apr_pool_t* parent, apr_pool_t** out);
+
+/**
  * Check if the active connection limit (H3MaxConnections) is reached.
  * @param io The h3_io_t instance to check.
  * @return Non-zero if at the limit, zero otherwise.
