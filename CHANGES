@@ -3,6 +3,22 @@ mod_http3 changes
 Changes are listed most recent first.
 Security-related entries always appear at the top of their release block.
 
+v0.0.76 (2026-11-10)
+--------------------
+  *) On a stop, the final GOAWAY goes out at once. Before, nghttp3 could
+     not report a connection drained until the grace period was over, so
+     even an idle connection held a stopping child that long and the
+     parent sent SIGTERM (AH00045). From apache/httpd PR #942.
+     [Alexander Gerasimov <codeguard gmail.com>]
+
+  *) The HTTP/3 threads allocate from a pool of their own with a locked
+     allocator, not from the child pool, which has no mutex under prefork.
+     They are also stopped from a cleanup of the child pool, since prefork
+     skips the child_stopping hook when a child exits from a signal
+     handler. Children could crash with SIGSEGV on stop. From apache/httpd
+     PR #940.
+     [Alexander Gerasimov <codeguard gmail.com>]
+
 v0.0.75 (2026-11-05)
 --------------------
   *) SECURITY: HTTP/3 requests now run ap_check_request_header() and the
