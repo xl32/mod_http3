@@ -4,6 +4,22 @@ An Apache httpd module that adds HTTP/3 support over QUIC.
 
 Status: **experimental**.
 
+## Packages
+
+Signed RPM and DEB packages of mod_http3 with a matching Apache httpd 2.4
+are in the [CodeIT repository](https://codeit.guru/tag/http3/) for CentOS 7,
+RHEL, AlmaLinux, Rocky Linux and Oracle Linux 8-10, and Ubuntu 22.04 and
+24.04 (x86_64, aarch64):
+
+```sh
+curl -fsSL https://repo.codeit.guru/setup | sudo sh
+sudo dnf module enable httpd:codeit                         # EL8-EL10
+sudo dnf install httpd mod_ssl mod_http2 mod_http3          # EL8-EL10
+sudo apt-get install apache2 libapache2-mod-http3           # Ubuntu
+```
+
+Release notes: [codeit.guru](https://codeit.guru/tag/http3/).
+
 ## Build
 
 Default build compiles all dependencies (OpenSSL, APR, APR-util, httpd) from submodules:
