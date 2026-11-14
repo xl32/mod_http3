@@ -46,8 +46,9 @@ Network-level DoS mitigation is outside the module's scope, but the module provi
 Connections exceeding these limits are refused or reset. Resource consumption (Memory, CPU) must scale proportionally to the volume of legitimate QUIC traffic.
 
 ### 4. QUIC-Specific Mechanisms
-- **Amplification Attacks**: The server relies on OpenSSL's stack to prevent amplification and will not send more than 3x the data received from an unvalidated address.
-- **Connection Migration & 0-RTT**: Currently not supported. Packets attempting to use these features must be safely dropped or rejected without consuming significant resources.
+- **Amplification Attacks**: The server relies on ngtcp2 to prevent amplification and will not send more than 3x the data received from an unvalidated address.
+- **Connection Migration**: ngtcp2 validates the new path before it sends more than the amplification limit to it.
+- **0-RTT**: Off by default (`H3EarlyData`). When on, requests with an unsafe method wait for the handshake, because 0-RTT data can be replayed.
 
 ## Dependent Services
 
@@ -55,7 +56,8 @@ Connections exceeding these limits are refused or reset. Resource consumption (M
 
 | Dependency | Role |
 |---|---|
-| **OpenSSL (≥ 3.5.0)** | QUIC TLS 1.3 handshake, encryption, and amplification protection. |
+| **OpenSSL (≥ 3.5.0)** | TLS 1.3 handshake and packet protection, through the ngtcp2 crypto helper. |
+| **ngtcp2 (≥ 1.25.0)** | QUIC transport, path validation and amplification protection. |
 | **nghttp3 (≥ 1.17.0)** | HTTP/3 frame parsing and generation. |
 | **APR (≥ 1.7.0)** | Portable runtime (threads, pools, sockets). |
 
