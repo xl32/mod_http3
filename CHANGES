@@ -3,6 +3,19 @@ mod_http3 changes
 Changes are listed most recent first.
 Security-related entries always appear at the top of their release block.
 
+v0.0.78 (2026-11-14)
+--------------------
+  *) A CONNECT request with no :path no longer crashes the child process.
+     The worker did not set the request URI, and httpd read a NULL
+     pointer in the location walk. Now the authority is the target, as
+     for HTTP/1.1 CONNECT, and the request gets a 4xx status.
+     [Alexander Gerasimov <repo codeit.guru>]
+
+  *) Fix a write to a freed session when a request completes on a closed
+     connection, lost entries in the QUIC accept queues, and new
+     connections that stay allocated during a graceful stop.
+     [Alexander Gerasimov <repo codeit.guru>]
+
 v0.0.77 (2026-11-10)
 --------------------
   *) A connection is no longer closed with H3_ID_ERROR after
