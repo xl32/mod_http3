@@ -219,3 +219,33 @@ class TestMalformedRequests:
             logged = fd.read()
         assert "ERR_CALLBACK_FAILURE" not in logged, (
             "an over-long pseudo-header killed the whole QUIC connection")
+
+    def test_013_connect_without_path_does_not_crash(self, env):
+        """CONNECT has no :path (RFC 9114 4.4); it must get an answer, not crash the child."""
+        authority = self._authority(env)
+
+        async def run():
+            config = QuicConfiguration(
+                is_client=True,
+                alpn_protocols=H3_ALPN,
+                verify_mode=ssl.CERT_NONE,
+                server_name=authority,
+            )
+            async with connect(
+                env.http_addr,
+                env.https_port,
+                configuration=config,
+                create_protocol=_RawRequestClient,
+            ) as client:
+                sid = client._quic.get_next_available_stream_id()
+                _, payload = client._encoder.encode(sid, [(b":method", b"CONNECT"), (b":authority", b"example.org:443")])
+                client._quic.send_stream_data(sid, encode_uint_var(FRAME_TYPE_HEADERS) + encode_uint_var(len(payload)) + payload, end_stream=True)
+                client.transmit()
+                await asyncio.wait_for(client._response_done.wait(), timeout=5.0)
+                connect_status = client.status
+                client._response_done.clear()
+                return connect_status, await client.get(authority, "/index.html")
+
+        connect_status, status = asyncio.run(run())
+        assert connect_status and connect_status[0] == "4", f"CONNECT got {connect_status}"
+        assert status == "200", "the child must survive a CONNECT request"
